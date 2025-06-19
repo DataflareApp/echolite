@@ -1,0 +1,9 @@
+[package]
+name = "protocol"
+edition = "2024"
+publish = false
+
+[dependencies]
+thiserror = "2"
+sha2 = "0.10"
+tokio = { version = "1", features = ["io-util"] }

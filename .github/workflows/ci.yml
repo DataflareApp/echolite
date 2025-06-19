@@ -1,0 +1,141 @@
+name: Build
+
+permissions:
+  contents: write
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: ${{ matrix.job.target }}
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      matrix:
+        job:
+          - target: x86_64-unknown-linux-gnu
+            release: linux-x86_64
+            os: ubuntu-22.04
+
+          - target: aarch64-unknown-linux-gnu
+            release: linux-arm64
+            os: ubuntu-22.04-arm
+
+          - target: x86_64-apple-darwin
+            release: macos-x86_64
+            os: macos-latest
+
+          - target: aarch64-apple-darwin
+            release: macos-arm64
+            os: macos-latest
+
+          - target: x86_64-pc-windows-msvc
+            release: windows-x86_64
+            os: windows-latest
+
+          - target: aarch64-pc-windows-msvc
+            release: windows-arm64
+            os: windows-11-arm
+
+    env:
+      NAME: echolite
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.job.target }}
+          components: rustfmt
+
+      - name: Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ matrix.job.target }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cargo fmt
+        run: |
+          cargo fmt --all -- --check
+
+      - name: Cargo test
+        run: |
+          cargo test --workspace --release --target ${{ matrix.job.target }}
+
+      - name: Cargo build
+        run: |
+          cargo build --release --target ${{ matrix.job.target }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: echolite-${{ matrix.job.release }}
+          path: |
+            target/${{ matrix.job.target }}/release/echolite
+            target/${{ matrix.job.target }}/release/echolite.exe
+          if-no-files-found: ignore
+
+      - name: Get version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: version
+        shell: bash
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Package zip (Unix)
+        if: startsWith(github.ref, 'refs/tags/') && !startsWith(matrix.job.os, 'windows')
+        run: |
+          cd ./target/${{ matrix.job.target }}/release/
+          zip echolite-v${{ steps.version.outputs.VERSION }}-${{ matrix.job.release }}.zip echolite
+
+      - name: Package zip (Windows)
+        if: startsWith(github.ref, 'refs/tags/') && startsWith(matrix.job.os, 'windows')
+        run: |
+          cd ./target/${{ matrix.job.target }}/release/
+          Compress-Archive -CompressionLevel Optimal -Force -Path echolite.exe -DestinationPath echolite-v${{ steps.version.outputs.VERSION }}-${{ matrix.job.release }}.zip
+
+      - name: GitHub release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ./target/**/*.zip
+
+  docker:
+    name: Docker
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Get version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: version
+        shell: bash
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: dataflare
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            dataflare/echolite:${{ steps.version.outputs.VERSION }}
+            dataflare/echolite:latest
