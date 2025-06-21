@@ -40,8 +40,13 @@ where
             return Err(Error::UnsupportedVersion(version));
         }
 
-        let salt = read_salt(&mut stream).await?;
-        write_auth_password(&mut stream, password, salt).await?;
+        let client_salt = rand_salt();
+        write_salt(&mut stream, client_salt).await?;
+
+        let server_salt = read_salt(&mut stream).await?;
+        let params = read_hash_params(&mut stream).await?;
+
+        write_auth_password(&mut stream, password, client_salt, server_salt, params).await?;
         Self::status(&mut stream).await?;
 
         write_connect(&mut stream, path, flags).await?;

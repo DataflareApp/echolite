@@ -1,22 +1,30 @@
 mod ext;
 mod flags;
 
+use argon2::{Algorithm, Argon2, Params as Argon2Params, Version as Argon2Version};
 use ext::{ReadExt, WriteExt};
-use sha2::{Digest, Sha256};
+use rand::Rng;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub use flags::*;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Async Runtime Error: {0}")]
+    AsyncRuntime(#[from] tokio::task::JoinError),
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("UTF-8 Error: {0}")]
     Utf8Error(#[from] std::string::FromUtf8Error),
     #[error("Varint Error")]
     Varint,
+    #[error("Invalid Argon2 Params")]
+    Argon2Params,
+    #[error("Argon2 Error: {0}")]
+    Argon2(argon2::Error),
     #[error("Unknown Status: {0}")]
     UnknownStatus(u8),
     #[error("Unknown Command: {0}")]
@@ -48,6 +56,7 @@ pub async fn read_protocol_version<R: AsyncRead + Unpin>(reader: &mut R) -> Resu
 }
 
 pub type Salt = [u8; 16];
+pub type HashedPassword = [u8; 32];
 
 pub async fn write_salt<W: AsyncWrite + Unpin>(writer: &mut W, salt: Salt) -> Result<()> {
     writer.write_all(&salt).await?;
@@ -61,29 +70,96 @@ pub async fn read_salt<R: AsyncRead + Unpin>(reader: &mut R) -> Result<Salt> {
     Ok(buf)
 }
 
-pub fn to_hashed_password<P: AsRef<str>>(password: P, salt: Salt) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(password.as_ref());
-    hasher.update(salt);
-    let hash = hasher.finalize();
-    let mut buf: [u8; 32] = [0; 32];
-    buf.copy_from_slice(&hash);
-    buf
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Params {
+    pub m_cost: u32,
+    pub t_cost: u32,
+    pub p_cost: u32,
+}
+
+impl Default for Params {
+    fn default() -> Self {
+        Params {
+            m_cost: 65536,
+            t_cost: 8,
+            p_cost: 1,
+        }
+    }
+}
+
+pub async fn write_hash_params<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    params: Params,
+) -> Result<()> {
+    writer.write_len(params.m_cost as u64).await?;
+    writer.write_len(params.t_cost as u64).await?;
+    writer.write_len(params.p_cost as u64).await?;
+    writer.flush().await?;
+    Ok(())
+}
+
+pub async fn read_hash_params<R: AsyncRead + Unpin>(reader: &mut R) -> Result<Params> {
+    fn check_size(size: u64) -> Result<u32> {
+        if size > u32::MAX as u64 {
+            return Err(Error::Argon2Params);
+        }
+        Ok(size as u32)
+    }
+    Ok(Params {
+        m_cost: check_size(reader.read_len().await?)?,
+        t_cost: check_size(reader.read_len().await?)?,
+        p_cost: check_size(reader.read_len().await?)?,
+    })
+}
+
+pub async fn to_hash_password<P: AsRef<str>>(
+    password: P,
+    client_salt: Salt,
+    server_salt: Salt,
+    params: Params,
+) -> Result<HashedPassword> {
+    #[derive(Zeroize, ZeroizeOnDrop)]
+    struct Password(Vec<u8>);
+
+    let params = Argon2Params::new(params.m_cost, params.t_cost, params.p_cost, Some(32))
+        .map_err(Error::Argon2)?;
+    let hasher = Argon2::new(Algorithm::Argon2id, Argon2Version::V0x13, params);
+    let password = Password(password.as_ref().as_bytes().to_vec());
+
+    let mut salt = [0; 32];
+    salt[..16].copy_from_slice(&client_salt);
+    salt[16..].copy_from_slice(&server_salt);
+
+    tokio::task::spawn_blocking(move || {
+        let mut out = [0; 32];
+        hasher
+            .hash_password_into(&password.0, &salt, &mut out)
+            .map_err(Error::Argon2)?;
+        Ok(out)
+    })
+    .await?
+}
+
+pub fn rand_salt() -> Salt {
+    let mut salt: Salt = [0; 16];
+    rand::rng().fill(&mut salt);
+    salt
 }
 
 pub async fn write_auth_password<W: AsyncWrite + Unpin, P: AsRef<str>>(
     writer: &mut W,
     password: P,
-    salt: Salt,
+    client_salt: Salt,
+    server_salt: Salt,
+    params: Params,
 ) -> Result<()> {
-    writer
-        .write_all(&to_hashed_password(password, salt))
-        .await?;
+    let p = to_hash_password(password, client_salt, server_salt, params).await?;
+    writer.write_all(&p).await?;
     writer.flush().await?;
     Ok(())
 }
 
-pub async fn read_auth_password<R: AsyncRead + Unpin>(reader: &mut R) -> Result<[u8; 32]> {
+pub async fn read_auth_password<R: AsyncRead + Unpin>(reader: &mut R) -> Result<HashedPassword> {
     let mut buf = [0; 32];
     reader.read_exact(&mut buf).await?;
     Ok(buf)

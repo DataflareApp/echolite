@@ -30,6 +30,8 @@ pub enum Error {
     Sqlite(#[from] rusqlite::Error),
     #[error("SQLite: Invalid Flags For File Open Operations")]
     InvalidFlags,
+    #[error("Tokio Semaphore Acquire Error: {0}")]
+    Semaphore(#[from] tokio::sync::AcquireError),
 }
 
 #[tokio::main]
@@ -101,11 +103,18 @@ async fn connection(stream: TcpStream, client: SocketAddr, password: Password) {
 async fn handler(mut stream: BufStream<TcpStream>, password: Password) -> Result<()> {
     write_protocol_version(&mut stream).await?;
 
-    let salt = password.rand_salt();
-    write_salt(&mut stream, salt).await?;
+    let client_salt = read_salt(&mut stream).await?;
+    let server_salt = rand_salt();
+    write_salt(&mut stream, server_salt).await?;
+
+    let params = Params::default();
+    write_hash_params(&mut stream, params).await?;
 
     let hashed = read_auth_password(&mut stream).await?;
-    match password.verify(salt, hashed) {
+    match password
+        .verify(client_salt, server_salt, params, hashed)
+        .await?
+    {
         true => {
             write_status(&mut stream, Status::Ok).await?;
         }

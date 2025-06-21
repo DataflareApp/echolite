@@ -5,5 +5,7 @@ publish = false
 
 [dependencies]
 thiserror = "2"
-sha2 = "0.10"
+argon2 = "0.5"
+rand = "0.9"
+zeroize = { version = "1.8", features = ["derive"] }
 tokio = { version = "1", features = ["io-util"] }

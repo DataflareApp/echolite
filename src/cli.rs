@@ -1,9 +1,11 @@
+use crate::Error;
 use clap::Parser;
-use protocol::{Salt, to_hashed_password};
-use rand::Rng;
+use protocol::{Params, Salt, to_hash_password};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+use tokio::sync::Semaphore;
 use tracing::level_filters::LevelFilter;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -47,25 +49,33 @@ fn to_socket_addr(s: &str) -> Result<SocketAddr, String> {
     Err(format!("Cannot parse `{}` to SocketAddr", s))
 }
 
+static LIMIT: Semaphore = Semaphore::const_new(2);
+
 #[derive(Debug, Clone)]
-pub struct Password(Arc<String>);
+pub struct Password(Arc<SecurePassword>);
+
+#[derive(Debug, Zeroize, ZeroizeOnDrop)]
+struct SecurePassword(String);
 
 impl Password {
     fn from_str(value: &str) -> Result<Self, String> {
-        Ok(Password(Arc::new(value.to_string())))
+        Ok(Password(Arc::new(SecurePassword(value.to_string()))))
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.0.0.is_empty()
     }
 
-    pub fn rand_salt(&self) -> Salt {
-        let mut salt: Salt = [0; 16];
-        rand::rng().fill(&mut salt);
-        salt
-    }
-
-    pub fn verify(&self, salt: Salt, hashed_password: [u8; 32]) -> bool {
-        to_hashed_password(self.0.as_str(), salt) == hashed_password
+    pub async fn verify(
+        &self,
+        client_salt: Salt,
+        server_salt: Salt,
+        params: Params,
+        client_password: [u8; 32],
+    ) -> Result<bool, Error> {
+        let _limit = LIMIT.acquire().await?;
+        let server_password =
+            to_hash_password(self.0.0.as_str(), client_salt, server_salt, params).await?;
+        Ok(server_password == client_password)
     }
 }
