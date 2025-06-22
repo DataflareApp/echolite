@@ -4,9 +4,7 @@ use tokio::io::{AsyncRead, AsyncWrite, BufStream};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("IO Error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("Protocol: {0}")]
+    #[error(transparent)]
     Protocol(#[from] protocol::Error),
     #[error("Unsupported Version: {0:?}")]
     UnsupportedVersion(Version),
