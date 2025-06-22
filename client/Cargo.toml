@@ -1,0 +1,12 @@
+[package]
+name = "client"
+edition = "2024"
+publish = false
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+
+[dependencies]
+tokio = "1"
+thiserror = "2"
+protocol = { path = "../protocol" }

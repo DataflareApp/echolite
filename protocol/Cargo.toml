@@ -1,0 +1,11 @@
+[package]
+name = "protocol"
+edition = "2024"
+publish = false
+
+[dependencies]
+thiserror = "2"
+argon2 = "0.5"
+rand = "0.9"
+zeroize = { version = "1.8", features = ["derive"] }
+tokio = { version = "1", features = ["io-util", "rt"] }
