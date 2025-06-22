@@ -1,5 +1,5 @@
 use protocol::*;
-pub use protocol::{Column, Flags, Query, Value, consts::*};
+pub use protocol::{Column, Error as ProtocolError, Flags, Query, Value, Version, consts::*};
 use tokio::io::{AsyncRead, AsyncWrite, BufStream};
 
 #[derive(Debug, thiserror::Error)]
