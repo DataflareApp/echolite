@@ -16,6 +16,7 @@ Download pre-compiled binaries for your operating system from the [Releases](htt
 
 > [!NOTE]
 > Names containing `dynamic` = dynamically linked SQLite
+> 
 > Names containing `static` = statically linked SQLite
 
 ### Compile from Source
