@@ -14,6 +14,10 @@ EchoLite bridges this gap by providing a secure proxy layer that enables network
 
 Download pre-compiled binaries for your operating system from the [Releases](https://github.com/DataflareApp/echolite/releases) page.
 
+> [!NOTE]
+> Names containing `dynamic` = dynamically linked SQLite
+> Names containing `static` = statically linked SQLite
+
 ### Compile from Source
 
 Make sure you have the Rust toolchain installed ([rustup](https://rustup.rs/)):
@@ -25,12 +29,12 @@ cd echolite
 
 # Build release version
 cargo build --release
+
+# If you need to dynamically link SQLite
+cargo build --release --no-default-features
 ```
 
 After compilation, the binary file is located at `target/release/echolite`.
-
-> [!NOTE]
-> EchoLite statically links SQLite, so you don't need to install SQLite separately on your system.
 
 ## Usage
 
