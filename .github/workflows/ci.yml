@@ -7,33 +7,53 @@ on: [push, pull_request]
 
 jobs:
   build:
-    name: ${{ matrix.job.target }}
+    name: ${{ matrix.job.release }}
     runs-on: ${{ matrix.job.os }}
     strategy:
       matrix:
         job:
           - target: x86_64-unknown-linux-gnu
-            release: linux-x86_64
+            release: linux-x86_64-static
+            os: ubuntu-22.04
+
+          - target: x86_64-unknown-linux-gnu
+            release: linux-x86_64-dynamic
+            flags: --no-default-features
             os: ubuntu-22.04
 
           - target: aarch64-unknown-linux-gnu
-            release: linux-arm64
+            release: linux-arm64-static
+            os: ubuntu-22.04-arm
+
+          - target: aarch64-unknown-linux-gnu
+            release: linux-arm64-dynamic
+            flags: --no-default-features
             os: ubuntu-22.04-arm
 
           - target: x86_64-apple-darwin
-            release: macos-x86_64
+            release: macos-x86_64-static
+            os: macos-latest
+
+          - target: x86_64-apple-darwin
+            release: macos-x86_64-dynamic
+            flags: --no-default-features
             os: macos-latest
 
           - target: aarch64-apple-darwin
-            release: macos-arm64
+            release: macos-arm64-static
+            os: macos-latest
+          
+          - target: aarch64-apple-darwin
+            release: macos-arm64-dynamic
+            flags: --no-default-features
             os: macos-latest
 
           - target: x86_64-pc-windows-msvc
-            release: windows-x86_64
+            release: windows-x86_64-static
             os: windows-latest
 
           - target: aarch64-pc-windows-msvc
-            release: windows-arm64
+            release: windows-arm64-static
             os: windows-11-arm
 
     env:
@@ -65,11 +85,11 @@ jobs:
 
       - name: Cargo test
         run: |
-          cargo test --workspace --release --target ${{ matrix.job.target }}
+          cargo test --workspace --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
       - name: Cargo build
         run: |
-          cargo build --release --target ${{ matrix.job.target }}
+          cargo build --release --target ${{ matrix.job.target }} ${{ matrix.job.flags }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
