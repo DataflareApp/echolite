@@ -44,17 +44,17 @@ After compilation, the binary file is located at `target/release/echolite`.
 Start the EchoLite server:
 
 ```bash
-./echolite -p 'your-password'
+echolite -p 'your-password'
 ```
 
 By default, EchoLite binds to `127.0.0.1:4567`. You can change the bind address using the `-b` parameter:
 
 ```bash
 # Change port only
-./echolite -p 'your-password' -b 1234
+echolite -p 'your-password' -b 1234
 
 # Change IP and port
-./echolite -p 'your-password' -b 192.168.0.8:7788
+echolite -p 'your-password' -b 192.168.0.8:7788
 ```
 
 ### Log Configuration
@@ -62,7 +62,7 @@ By default, EchoLite binds to `127.0.0.1:4567`. You can change the bind address 
 Use the `-l` parameter to adjust the log level for more detailed output:
 
 ```bash
-./echolite -p 'your-password' -l trace
+echolite -p 'your-password' -l trace
 ```
 
 Supported log levels: `error`, `warn`, `info`, `debug`, `trace`, `off`
