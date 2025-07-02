@@ -76,10 +76,10 @@ docker pull dataflare/echolite
 # Run the container
 docker run -d \
     --name echolite \
+    --restart always \
     -p 127.0.0.1:4567:4567 \
     -e ECHOLITE_BIND='0.0.0.0' \
     -e ECHOLITE_PASSWORD='YOUR_PASSWORD' \
-    -e ECHOLITE_LOG='info' \
     -v /your/database/path:/echolite/ \
     dataflare/echolite
 ```
