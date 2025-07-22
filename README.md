@@ -110,7 +110,7 @@ EchoLite supports configuration through environment variables:
 
 Dataflare has out-of-the-box support for EchoLite. You can directly create a new EchoLite connection in [Dataflare](https://dataflare.app) and easily access your SQLite database.
 
-![Dataflare](https://github.com/user-attachments/assets/ee56dd92-b80c-4c7a-96bf-e17756f207bf)
+![Dataflare](https://github.com/user-attachments/assets/0f9f927d-c613-4708-8503-5b1ee941d37f)
 
 ### Programmatic Access
 
