@@ -142,7 +142,7 @@ pub async fn to_hash_password<P: AsRef<str>>(
 
 pub fn rand_salt() -> Salt {
     let mut salt: Salt = [0; 16];
-    rand::rng().fill(&mut salt);
+    rand::rng().fill_bytes(&mut salt);
     salt
 }
 
