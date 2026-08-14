@@ -1,5 +1,8 @@
 use protocol::*;
-pub use protocol::{Column, Error as ProtocolError, Flags, Query, Value, Version, consts::*};
+pub use protocol::{
+    Column, DEFAULT_SERVER_BIND_ADDR, DEFAULT_SERVER_BIND_IP, DEFAULT_SERVER_PORT,
+    Error as ProtocolError, Flags, Query, Value, Version, consts::*,
+};
 use tokio::io::{AsyncRead, AsyncWrite, BufStream};
 
 #[derive(Debug, thiserror::Error)]
@@ -19,6 +22,7 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Debug)]
 pub struct Connection<T> {
     stream: BufStream<T>,
+    version: Version,
 }
 
 impl<T> Connection<T>
@@ -50,7 +54,12 @@ where
         write_connect(&mut stream, path, flags).await?;
         Self::status(&mut stream).await?;
 
-        Ok(Self { stream })
+        Ok(Self { stream, version })
+    }
+
+    /// Returns the protocol version negotiated during connection.
+    pub fn version(&self) -> Version {
+        self.version
     }
 
     async fn status(reader: &mut BufStream<T>) -> Result<()> {

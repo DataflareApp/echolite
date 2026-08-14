@@ -4,10 +4,19 @@ mod flags;
 use argon2::{Algorithm, Argon2, Params as Argon2Params, Version as Argon2Version};
 use ext::{ReadExt, WriteExt};
 use rand::Rng;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub use flags::*;
 use zeroize::{Zeroize, ZeroizeOnDrop};
+
+/// Default server bind IP address.
+pub const DEFAULT_SERVER_BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+/// Default server bind port.
+pub const DEFAULT_SERVER_PORT: u16 = 4567;
+/// Default server bind address.
+pub const DEFAULT_SERVER_BIND_ADDR: SocketAddr =
+    SocketAddr::new(DEFAULT_SERVER_BIND_IP, DEFAULT_SERVER_PORT);
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -39,6 +48,12 @@ pub enum Error {
 pub struct Version {
     pub major: u8,
     pub minor: u8,
+}
+
+impl std::fmt::Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.major, self.minor)
+    }
 }
 
 pub async fn write_protocol_version<W: AsyncWrite + Unpin>(writer: &mut W) -> Result<()> {

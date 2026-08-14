@@ -1,9 +1,9 @@
-use client::{Connection, Flags};
+use client::{Connection, DEFAULT_SERVER_BIND_ADDR, Flags};
 use tokio::net::TcpStream;
 
 #[tokio::main]
 async fn main() {
-    let stream = TcpStream::connect("localhost:4567").await.unwrap();
+    let stream = TcpStream::connect(DEFAULT_SERVER_BIND_ADDR).await.unwrap();
     stream.set_nodelay(true).unwrap();
 
     let password = "";
@@ -13,6 +13,8 @@ async fn main() {
     let mut client = Connection::connect(stream, password, path, flags)
         .await
         .unwrap();
+
+    dbg!(client.version());
 
     client.ping().await.unwrap();
 

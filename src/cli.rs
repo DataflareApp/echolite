@@ -1,7 +1,10 @@
 use crate::Error;
 use clap::Parser;
-use protocol::{Params, Salt, to_hash_password};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use protocol::{
+    DEFAULT_SERVER_BIND_ADDR, DEFAULT_SERVER_BIND_IP, DEFAULT_SERVER_PORT, Params, Salt,
+    to_hash_password,
+};
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tracing::level_filters::LevelFilter;
@@ -11,7 +14,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 #[clap(version)]
 pub struct Args {
     /// Set listen address
-    #[clap(short,  long, name = "ADDRESS|IP|PORT", env = "ECHOLITE_BIND", value_parser = to_socket_addr, default_value_t = DEFAULT_BIND)]
+    #[clap(short,  long, name = "ADDRESS|IP|PORT", env = "ECHOLITE_BIND", value_parser = to_socket_addr, default_value_t = DEFAULT_SERVER_BIND_ADDR)]
     pub bind: SocketAddr,
 
     /// Set auth password
@@ -29,10 +32,6 @@ pub struct Args {
     pub log: LevelFilter,
 }
 
-const IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
-const PORT: u16 = 4567;
-const DEFAULT_BIND: SocketAddr = SocketAddr::new(IP, PORT);
-
 fn to_socket_addr(s: &str) -> Result<SocketAddr, String> {
     // 0.0.0.0:80
     if let Ok(addr) = s.parse::<SocketAddr>() {
@@ -40,11 +39,11 @@ fn to_socket_addr(s: &str) -> Result<SocketAddr, String> {
     }
     // 0.0.0.0 / ::
     if let Ok(ip) = s.parse::<IpAddr>() {
-        return Ok(SocketAddr::new(ip, PORT));
+        return Ok(SocketAddr::new(ip, DEFAULT_SERVER_PORT));
     }
     // 80
     if let Ok(port) = s.parse::<u16>() {
-        return Ok(SocketAddr::new(IP, port));
+        return Ok(SocketAddr::new(DEFAULT_SERVER_BIND_IP, port));
     }
     Err(format!("Cannot parse `{}` to SocketAddr", s))
 }
