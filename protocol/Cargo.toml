@@ -7,5 +7,5 @@ publish = false
 thiserror = "2"
 argon2 = "0.5"
 rand = "0.10"
-zeroize = { version = "1.8", features = ["derive"] }
+zeroize = { version = "1.9", features = ["derive"] }
 tokio = { version = "1", features = ["io-util", "rt"] }
